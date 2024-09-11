@@ -48,7 +48,7 @@ module.exports = function (app) {
                 .then(ips => {
                   if (!ips || ips.length == 0 || (ips.length == 1 && ips[0].symbolId.symbol != stock)) {
                     //puede likear 2 veces el mismo?
-                    return SYMBOL.findOneAndUpdate({ symbol: stock}, { $inc: { likes: 1 } }, { upsert: true })
+                    return SYMBOL.findOneAndUpdate({ symbol: stock}, { $inc: { likes: 1 } }, { upsert: true, new: true })
                       .then(symbol => {
                         // Agregar la IP como usada
                         let newIp = new IPDB({
@@ -57,7 +57,7 @@ module.exports = function (app) {
                         });
                         return newIp.save()
                           .then(() => {
-                            symbolLikes = symbol.likes + 1;
+                            symbolLikes = symbol.likes;
                             return { stock: stock, price: price, likes: symbolLikes };
                           });
                       });
@@ -68,11 +68,11 @@ module.exports = function (app) {
                           // Si no existe, lo insertamos
                           let newSymbol = new SYMBOL({
                             symbol: stock,
-                            likes: 1
+                            likes: 0
                           });
                           newSymbol.save();
                         }
-                        return { stock: stock, price: price, likes: symbol ? symbol.likes : 1 };
+                        return { stock: stock, price: price, likes: symbol ? symbol.likes : 0 };
                       });
                   }
                 });
@@ -98,7 +98,9 @@ module.exports = function (app) {
       Promise.all(stockPromises)
         .then(stockDataAll => {
           let returnArr = [];
-          if (stockDataAll && stockDataAll.length > 1) {
+          if (stockDataAll && stockDataAll.length == 1)
+            returnArr = stockDataAll[0];
+          else if (stockDataAll && stockDataAll.length > 1) {
             let likesA = stockDataAll[0].likes;
             let likesB = stockDataAll[1].likes;
             let diffA = likesA-likesB;
@@ -115,8 +117,8 @@ module.exports = function (app) {
                 rel_likes : diffB
               }
             ];
-          } else
-            returnArr = stockDataAll;
+          } 
+            
           return res.json({ stockData: returnArr });
         })
         .catch(error => {
